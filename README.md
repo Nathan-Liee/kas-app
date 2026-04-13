@@ -92,7 +92,7 @@ Used to classify different types of expenses.
 Clone repository
 
 ```
-git clone https://github.com/username/kas-toko.git
+git clone https://github.com/Nathan-Liee/kas-toko.git
 ```
 
 Go to project folder
