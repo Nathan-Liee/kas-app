@@ -1,0 +1,273 @@
+import { useState } from "react";
+import Card from "../components/Card";
+import Badge from "../components/Badge";
+import TransaksiRow from "../components/TransaksiRow";
+import Modal from "../components/Modal";
+import { formatUang } from "../utils/format";
+
+function LaporanHarianContent({ data, selectedDate, calc }) {
+  const tgl = selectedDate;
+  if (!tgl || !data[tgl]) return null;
+  const c = calc(tgl);
+
+  return (
+    <div>
+      <div style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 14, padding: 14, marginBottom: 16 }}>
+        <p style={{ color: "#aaa", fontSize: 11, margin: "0 0 4px" }}>Uang Awal</p>
+        <p style={{ color: "#fff", fontWeight: 800, fontSize: 20, margin: 0, fontFamily: "'Sora',sans-serif" }}>{formatUang(c.uang_awal)}</p>
+      </div>
+
+      <p style={{ color: "#6366F1", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Pemasukan</p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
+        {[["Cash", c.totalCash, "#10B981"], ["QRIS", c.totalQris, "#06B6D4"], ["Total", c.totalMasuk, "#6366F1"]].map(([l, v, col]) => (
+          <div key={l} style={{ background: `${col}11`, border: `1px solid ${col}33`, borderRadius: 12, padding: "10px 12px" }}>
+            <p style={{ color: col + "99", fontSize: 10, margin: "0 0 4px", fontWeight: 600 }}>{l}</p>
+            <p style={{ color: col, fontSize: 12, fontWeight: 700, margin: 0 }}>{formatUang(v)}</p>
+          </div>
+        ))}
+      </div>
+
+      <p style={{ color: "#6366F1", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Pengeluaran per Kategori</p>
+      {Object.keys(c.kategoriMap ?? {}).length === 0 ? (
+        <p style={{ color: "#555577", fontSize: 13, marginBottom: 14 }}>Belum ada pengeluaran</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+          {Object.entries(c.kategoriMap).map(([k, v]) => (
+            <div key={k} style={{ display: "flex", justifyContent: "space-between", background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "8px 12px" }}>
+              <span style={{ color: "#ccc", fontSize: 13 }}>{k}</span>
+              <span style={{ color: "#EF4444", fontWeight: 700, fontSize: 13 }}>{formatUang(v)}</span>
+            </div>
+          ))}
+          <div style={{ display: "flex", justifyContent: "space-between", background: "rgba(239,68,68,0.1)", borderRadius: 10, padding: "8px 12px" }}>
+            <span style={{ color: "#EF4444", fontSize: 13, fontWeight: 700 }}>Total</span>
+            <span style={{ color: "#EF4444", fontWeight: 700, fontSize: 13 }}>{formatUang(c.totalKeluar)}</span>
+          </div>
+        </div>
+      )}
+
+      <p style={{ color: "#6366F1", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Saldo Akhir</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+        {[["Cash Fisik", c.saldoCash, "#10B981"], ["Total Sistem", c.saldoTotal, "#6366F1"], ["Tanpa Gaji", c.saldoTanpaGaji, "#F59E0B"]].map(([l, v, col]) => (
+          <div key={l} style={{ display: "flex", justifyContent: "space-between", background: `${col}11`, border: `1px solid ${col}22`, borderRadius: 12, padding: "10px 14px" }}>
+            <span style={{ color: "#aaa", fontSize: 13 }}>{l}</span>
+            <span style={{ color: col, fontWeight: 700, fontSize: 14 }}>{formatUang(v)}</span>
+          </div>
+        ))}
+      </div>
+
+      <p style={{ color: "#6366F1", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Riwayat Transaksi</p>
+      {c.transaksi.length === 0 ? (
+        <p style={{ color: "#555577", fontSize: 13 }}>Tidak ada transaksi</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {c.transaksi.map((t, i) => <TransaksiRow key={i} t={t} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LaporanMingguan({ data, calc }) {
+  const dates = Object.keys(data).sort((a, b) => b.localeCompare(a));
+  
+  const weeks = {};
+  dates.forEach(tgl => {
+    const date = new Date(tgl + 'T00:00:00');
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(date.setDate(diff));
+    const weekKey = monday.toISOString().split('T')[0];
+    if (!weeks[weekKey]) weeks[weekKey] = [];
+    weeks[weekKey].push(tgl);
+  });
+
+  const weekKeys = Object.keys(weeks).sort((a, b) => b.localeCompare(a));
+
+  if (weekKeys.length === 0) return (
+    <Card><p style={{ color: "#555577", textAlign: "center", margin: "24px 0", fontSize: 14 }}>Belum ada data</p></Card>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {weekKeys.map(weekKey => {
+        const weekDates = weeks[weekKey];
+        const totalMasuk = weekDates.reduce((s, tgl) => s + (calc(tgl).totalMasuk ?? 0), 0);
+        const totalKeluar = weekDates.reduce((s, tgl) => s + (calc(tgl).totalKeluar ?? 0), 0);
+        const endDate = new Date(weekKey + 'T00:00:00');
+        endDate.setDate(endDate.getDate() + 6);
+
+        return (
+          <div key={weekKey} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "14px 16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div>
+                <p style={{ margin: "0 0 2px", fontWeight: 700, fontSize: 14, fontFamily: "'Sora',sans-serif", color: "#fff" }}>
+                  {new Date(weekKey + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - {endDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </p>
+                <p style={{ margin: 0, color: "#6b6b88", fontSize: 12 }}>{weekDates.length} hari aktif</p>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <p style={{ margin: "0 0 2px", color: "#10B981", fontWeight: 700, fontSize: 13 }}>+{formatUang(totalMasuk)}</p>
+                <p style={{ margin: 0, color: "#EF4444", fontSize: 12 }}>-{formatUang(totalKeluar)}</p>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {weekDates.map(tgl => {
+                const c = calc(tgl);
+                return (
+                  <div key={tgl} style={{ display: "flex", justifyContent: "space-between", padding: "6px 10px", background: "rgba(255,255,255,0.03)", borderRadius: 8 }}>
+                    <span style={{ color: "#aaa", fontSize: 12 }}>{new Date(tgl + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                    <div style={{ display: "flex", gap: 12 }}>
+                      <span style={{ color: "#10B981", fontSize: 12, fontWeight: 600 }}>+{formatUang(c.totalMasuk ?? 0)}</span>
+                      <span style={{ color: "#EF4444", fontSize: 12, fontWeight: 600 }}>-{formatUang(c.totalKeluar ?? 0)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function LaporanBulanan({ data, calc }) {
+  const dates = Object.keys(data).sort((a, b) => b.localeCompare(a));
+
+  const months = {};
+  dates.forEach(tgl => {
+    const monthKey = tgl.substring(0, 7);
+    if (!months[monthKey]) months[monthKey] = [];
+    months[monthKey].push(tgl);
+  });
+
+  const monthKeys = Object.keys(months).sort((a, b) => b.localeCompare(a));
+
+  if (monthKeys.length === 0) return (
+    <Card><p style={{ color: "#555577", textAlign: "center", margin: "24px 0", fontSize: 14 }}>Belum ada data</p></Card>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {monthKeys.map(monthKey => {
+        const monthDates = months[monthKey];
+        const totalMasuk = monthDates.reduce((s, tgl) => s + (calc(tgl).totalMasuk ?? 0), 0);
+        const totalKeluar = monthDates.reduce((s, tgl) => s + (calc(tgl).totalKeluar ?? 0), 0);
+        const saldo = totalMasuk - totalKeluar;
+        const [year, month] = monthKey.split('-');
+        const monthName = new Date(year, month - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+
+        return (
+          <div key={monthKey} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "14px 16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div>
+                <p style={{ margin: "0 0 2px", fontWeight: 700, fontSize: 15, fontFamily: "'Sora',sans-serif", color: "#fff" }}>{monthName}</p>
+                <p style={{ margin: 0, color: "#6b6b88", fontSize: 12 }}>{monthDates.length} hari aktif</p>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <p style={{ margin: "0 0 2px", color: "#10B981", fontWeight: 700, fontSize: 13 }}>+{formatUang(totalMasuk)}</p>
+                <p style={{ margin: 0, color: "#EF4444", fontSize: 12 }}>-{formatUang(totalKeluar)}</p>
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "8px 12px", marginBottom: 10 }}>
+              <span style={{ color: "#aaa", fontSize: 13 }}>Saldo Bersih</span>
+              <span style={{ color: saldo >= 0 ? "#10B981" : "#EF4444", fontWeight: 700, fontSize: 13 }}>{formatUang(saldo)}</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {monthDates.map(tgl => {
+                const c = calc(tgl);
+                return (
+                  <div key={tgl} style={{ display: "flex", justifyContent: "space-between", padding: "6px 10px", background: "rgba(255,255,255,0.03)", borderRadius: 8 }}>
+                    <span style={{ color: "#aaa", fontSize: 12 }}>{new Date(tgl + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric' })}</span>
+                    <div style={{ display: "flex", gap: 12 }}>
+                      <span style={{ color: "#10B981", fontSize: 12, fontWeight: 600 }}>+{formatUang(c.totalMasuk ?? 0)}</span>
+                      <span style={{ color: "#EF4444", fontSize: 12, fontWeight: 600 }}>-{formatUang(c.totalKeluar ?? 0)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function LaporanScreen({
+  data, today, dates, calc,
+  selectedDate, setSelectedDate,
+  modalOpen, setModal, closeModal,
+}) {
+  const [activeTab, setActiveTab] = useState("harian");
+
+  const tabs = [
+    { key: "harian",   label: "Harian" },
+    { key: "mingguan", label: "Mingguan" },
+    { key: "bulanan",  label: "Bulanan" },
+  ];
+
+  return (
+    <div style={{ padding: "0 16px 100px" }}>
+      <div style={{ paddingTop: 60, paddingBottom: 16 }}>
+        <h2 style={{ color: "#fff", fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 22, margin: 0 }}>
+          Laporan
+        </h2>
+      </div>
+
+      {/* Tab */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setActiveTab(t.key)}
+            style={{
+              padding: "10px", borderRadius: 12,
+              border: `1.5px solid ${activeTab === t.key ? "#6366F1" : "rgba(255,255,255,0.1)"}`,
+              background: activeTab === t.key ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.04)",
+              color: activeTab === t.key ? "#6366F1" : "#aaa",
+              fontWeight: 700, fontSize: 13, cursor: "pointer",
+              fontFamily: "'Sora',sans-serif",
+            }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      {activeTab === "harian" && (
+        dates.length === 0 ? (
+          <Card><p style={{ color: "#555577", textAlign: "center", margin: "24px 0", fontSize: 14 }}>Belum ada data</p></Card>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {dates.map(tgl => {
+              const c = calc(tgl);
+              return (
+                <button key={tgl} onClick={() => { setSelectedDate(tgl); setModal("laporanHarian"); }}
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "14px 16px", cursor: "pointer", textAlign: "left", color: "#fff" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <p style={{ margin: "0 0 2px", fontWeight: 700, fontSize: 15, fontFamily: "'Sora',sans-serif" }}>
+                        {tgl} {tgl === today && <Badge color="#6366F1">HARI INI</Badge>}
+                      </p>
+                      <p style={{ margin: 0, color: "#6b6b88", fontSize: 12 }}>{c.transaksi?.length ?? 0} transaksi</p>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <p style={{ margin: "0 0 2px", color: "#10B981", fontWeight: 700, fontSize: 13 }}>+{formatUang(c.totalMasuk ?? 0)}</p>
+                      <p style={{ margin: 0, color: "#EF4444", fontSize: 12 }}>-{formatUang(c.totalKeluar ?? 0)}</p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )
+      )}
+
+      {activeTab === "mingguan" && <LaporanMingguan data={data} calc={calc} />}
+      {activeTab === "bulanan" && <LaporanBulanan data={data} calc={calc} />}
+
+      <Modal show={modalOpen === "laporanHarian"} onClose={closeModal} title={`Laporan — ${selectedDate}`}>
+        <LaporanHarianContent data={data} selectedDate={selectedDate} calc={calc} />
+      </Modal>
+    </div>
+  );
+}
