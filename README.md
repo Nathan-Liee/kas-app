@@ -128,13 +128,20 @@ VITE_SUPABASE_ANON_KEY=your_anon_key
 
 ## Roadmap
 
-Planned improvements:
+### Completed
+- Multi-user authentication
+- Transaction recording
+- Expense categorization
+- Daily / weekly / monthly reports
+- Web deployment
+- Android build
 
-* Data visualization (charts)
-* Export transactions
-* Inventory tracking
-* Multi-store support
-
+### Next
+- Edit & Reset transcation
+- Transaction filtering
+- Dasboard analytics
+- Data export
+- Offline mode & Auto Sync
 ---
 
 ## Author
