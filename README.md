@@ -8,8 +8,6 @@ Kas Toko helps store owners record transactions, categorize expenses, and view f
 
 ## Preview
 
-## Preview
-
 <p align="center">
 <img src="./assets/Dashboard.png" width="250">
 <img src="./assets/Transaction.png" width="250">
