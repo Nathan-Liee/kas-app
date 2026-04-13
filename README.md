@@ -1,17 +1,147 @@
-# React + Vite
+# Kas Toko
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A simple multi-user cash management application designed for small shops to track daily income and expenses.
 
-Currently, two official plugins are available:
+Kas Toko helps store owners record transactions, categorize expenses, and view financial reports in a simple and practical interface.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Preview
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+![Kas Toko Screenshot]
+DASHBOARD
+(./assets/Dashboard.png)
+TRANSACTION
+(./assets/Transaction.png)
+REPORT
+(./assets/Report.png)
 
-## Expanding the ESLint configuration
+Live Demo
+https://kas-app-mauve.vercel.app/
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
-# kas-app
+---
+
+## Features
+
+* Multi-user system with authentication
+* Record income (Cash / QRIS)
+* Expense categorization
+* Daily, weekly, and monthly reports
+* Secure database access using Row Level Security
+* Responsive web interface
+* Android build support
+
+---
+
+## Tech Stack
+
+Frontend
+
+* React
+* Vite
+
+Backend & Database
+
+* Supabase (PostgreSQL + Auth)
+
+Deployment
+
+* Vercel
+
+Mobile
+
+* Capacitor (Android APK)
+
+Version Control
+
+* Git & GitHub
+
+---
+
+## Architecture
+
+User
+↓
+React Frontend
+↓
+Supabase Client
+↓
+Supabase API
+↓
+PostgreSQL Database
+
+Row Level Security (RLS) ensures each user only accesses their own data.
+
+---
+
+## Database Design
+
+Example core tables:
+
+Users
+Stores basic user authentication data.
+
+Transactions
+Stores all income and expense records.
+
+Categories
+Used to classify different types of expenses.
+
+---
+
+## Installation
+
+Clone repository
+
+```
+git clone https://github.com/username/kas-toko.git
+```
+
+Go to project folder
+
+```
+cd kas-toko
+```
+
+Install dependencies
+
+```
+npm install
+```
+
+Run development server
+
+```
+npm run dev
+```
+
+---
+
+## Environment Variables
+
+Create a `.env` file and add:
+
+```
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
+```
+
+---
+
+## Roadmap
+
+Planned improvements:
+
+* Data visualization (charts)
+* Export transactions
+* Inventory tracking
+* Multi-store support
+
+---
+
+## Author
+
+Nathan Liee
+
+GitHub
+https://github.com/Nathan-Liee
