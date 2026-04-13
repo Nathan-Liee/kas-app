@@ -10,14 +10,11 @@ Kas Toko helps store owners record transactions, categorize expenses, and view f
 
 ## Preview
 
-### Dashboard
-<img src="./assets/Dashboard.png" width="350">
-
-### Transaction
-<img src="./assets/Transaction.png" width="350">
-
-### Report
-<img src="./assets/Report.png" width="350">
+<p align="center">
+<img src="./assets/Dashboard.png" width="250">
+<img src="./assets/Transaction.png" width="250">
+<img src="./assets/Report.png" width="250">
+</p>
 
 Live Demo
 https://kas-app-mauve.vercel.app/
