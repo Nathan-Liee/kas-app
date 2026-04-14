@@ -5,6 +5,7 @@ import Field from "../components/Field";
 
 export default function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [isRegister, setIsRegister] = useState(false);
@@ -200,8 +201,33 @@ export default function LoginScreen({ onLogin }) {
               placeholder={isRegister ? "email@example.com" : "email atau username"}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             />
-            <Field label="Password" value={password} onChange={setPassword} type="password" placeholder="Minimal 6 karakter"
-              onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
+           <div style={{ position: "relative" }}>
+  <Field
+    label="Password"
+    value={password}
+    onChange={setPassword}
+    type={showPassword ? "text" : "password"}
+    placeholder="Minimal 6 karakter"
+    onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+  />
+  <button
+    onClick={() => setShowPassword(!showPassword)}
+    style={{ position: "absolute", right: 12, top: 34, background: "none", border: "none", cursor: "pointer", color: "#6b6b88", padding: 4 }}
+  >
+    {showPassword ? (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+        <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+        <line x1="1" y1="1" x2="23" y2="23"/>
+      </svg>
+    ) : (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+    )}
+  </button>
+</div>
 
             {error && <p style={{ color: "#EF4444", fontSize: 13, margin: "-8px 0 12px", textAlign: "center" }}>{error}</p>}
             {msg && <p style={{ color: "#10B981", fontSize: 13, margin: "-8px 0 12px", textAlign: "center", fontWeight: 600 }}>{msg}</p>}
