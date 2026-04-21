@@ -397,7 +397,7 @@ const doReset = async () => {
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {data[today].transaksi.map((t, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, animation: "fadeIn 0.2s ease-out" }}>
                   <div style={{ flex: 1 }}><TransaksiRow t={t} /></div>
                   <button onClick={() => { setHapusIdx(i); setModal("konfirmHapus"); }} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, padding: "8px 10px", cursor: "pointer", color: "#EF4444", flexShrink: 0 }}>
                     <Icon name="trash" size={16} />
