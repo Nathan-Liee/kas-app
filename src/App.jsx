@@ -19,6 +19,7 @@ import PengaturanScreen from "./screens/Pengaturan";
 import { loadData, saveHarian, saveTransaksi, getCurrentDate, loadProfile } from "./utils/storage";
 import { calcHarian } from "./utils/calc";
 import { formatAngka } from "./utils/format";
+import { saveTransaksiLocal, getTransaksiLocal, saveUangAwalLocal, getUangAwalLocal, addToSyncQueue, getSyncQueue, clearSyncQueue } from "./db/index";
 
 const TABS = [
   { key: "home",       icon: "home",  label: "Beranda"    },
@@ -153,6 +154,27 @@ export default function App() {
     setTimeout(() => setToast(null), 2200);
   };
 
+  useEffect(() => {
+  if (!isOnline || !user) return;
+
+  const syncData = async () => {
+    try {
+      const queue = await getSyncQueue();
+      for (const item of queue) {
+        if (item.action === 'transaksi') {
+          await saveTransaksi(item.data.tanggal, item.data.transaksi);
+        }
+      }
+      await clearSyncQueue();
+      showToast("Data tersinkron!", "success");
+    } catch (err) {
+      console.error("Sync gagal:", err);
+    }
+  };
+
+  syncData();
+}, [isOnline, user]);
+
   const closeModal = () => {
   setModal(null);
   setFormJumlah(""); setFormKategori(""); setFormCatatan(""); setFormMetode("cash");
@@ -167,16 +189,30 @@ export default function App() {
   const handleSetupUangAwalChange = (val) => setSetupUangAwal(formatAngka(val));
 
   const doSetup = async () => {
-    if (isSubmitting) return;
-    const n = parseInt(cleanNumber(setupUangAwal));
-    if (isNaN(n) || n < 0) return showToast("Masukkan angka yang valid!", "error");
-    setIsSubmitting(true);
-    await saveHarian(today, n);
+  if (isSubmitting) return;
+  const n = parseInt(cleanNumber(setupUangAwal));
+  if (isNaN(n) || n < 0) return showToast("Masukkan angka yang valid!", "error");
+  setIsSubmitting(true);
+  try {
     const d = { ...data, [today]: { uang_awal: n, transaksi: [] } };
-    setData(d); closeModal(); setSetupUangAwal("");
+    setData(d);
+    
+    if (isOnline) {
+      await saveHarian(today, n);
+    } else {
+      await saveUangAwalLocal(today, n);
+      await addToSyncQueue('uang_awal', { tanggal: today, uang_awal: n });
+      showToast("Tersimpan offline — akan sync saat online", "info");
+    }
+    closeModal();
+    setSetupUangAwal("");
     showToast("Hari baru berhasil dibuat!");
+  } catch {
+    showToast("Gagal setup, coba lagi!", "error");
+  } finally {
     setIsSubmitting(false);
-  };
+  }
+};
 
   const doMasuk = async () => {
   if (isSubmitting) return;
@@ -187,7 +223,14 @@ export default function App() {
     const d = { ...data };
     d[today].transaksi.push({ type: "masuk", jumlah: n, metode: formMetode });
     setData({ ...d });
-    await saveTransaksi(today, d[today].transaksi);
+    
+    if (isOnline) {
+      await saveTransaksi(today, d[today].transaksi);
+    } else {
+      await saveTransaksiLocal(today, d[today].transaksi);
+      await addToSyncQueue('transaksi', { tanggal: today, transaksi: d[today].transaksi });
+      showToast("Tersimpan offline — akan sync saat online", "info");
+    }
     closeModal();
     showToast("Pemasukan ditambahkan!");
   } catch {
@@ -206,7 +249,14 @@ const doKeluar = async () => {
     const d = { ...data };
     d[today].transaksi.push({ type: "keluar", jumlah: n, kategori: formKategori || "Lainnya", catatan: formCatatan || "-" });
     setData({ ...d });
-    await saveTransaksi(today, d[today].transaksi);
+
+    if (isOnline) {
+      await saveTransaksi(today, d[today].transaksi);
+    } else {
+      await saveTransaksiLocal(today, d[today].transaksi);
+      await addToSyncQueue('transaksi', { tanggal: today, transaksi: d[today].transaksi });
+      showToast("Tersimpan offline — akan sync saat online", "info");
+    }
     closeModal();
     showToast("Pengeluaran ditambahkan!");
   } catch {
@@ -223,7 +273,14 @@ const doHapus = async () => {
     const d = { ...data };
     d[today].transaksi.splice(hapusIdx, 1);
     setData({ ...d });
-    await saveTransaksi(today, d[today].transaksi);
+
+    if (isOnline) {
+      await saveTransaksi(today, d[today].transaksi);
+    } else {
+      await saveTransaksiLocal(today, d[today].transaksi);
+      await addToSyncQueue('transaksi', { tanggal: today, transaksi: d[today].transaksi });
+      showToast("Tersimpan offline — akan sync saat online", "info");
+    }
     closeModal();
     showToast("Transaksi dihapus!", "info");
   } catch {
@@ -238,7 +295,6 @@ const doReset = async () => {
   if (konfirmasiReset.toLowerCase() !== "ya") return showToast("Ketik 'ya' untuk konfirmasi!", "error");
   setIsSubmitting(true);
   try {
-    await saveTransaksi(today, []);
     setData(prev => ({
       ...prev,
       [today]: {
@@ -246,6 +302,15 @@ const doReset = async () => {
         transaksi: [],
       }
     }));
+    
+    if (isOnline) {
+      await saveTransaksi(today, []);
+    } else {
+      await saveTransaksiLocal(today, []);
+      await addToSyncQueue('transaksi', { tanggal: today, transaksi: [] });
+      showToast("Direset offline — akan sync saat online", "info");
+    }
+    
     closeModal();
     showToast("Semua transaksi direset!", "info");
   } catch {
@@ -256,18 +321,31 @@ const doReset = async () => {
 };
 
   const doUbahAwal = async () => {
-    if (isSubmitting) return;
-    const n = parseInt(cleanNumber(formUangAwal));
-    if (isNaN(n) || n < 0) return showToast("Angka tidak valid!", "error");
-    setIsSubmitting(true);
+  if (isSubmitting) return;
+  const n = parseInt(cleanNumber(formUangAwal));
+  if (isNaN(n) || n < 0) return showToast("Angka tidak valid!", "error");
+  setIsSubmitting(true);
+  try {
     const d = { ...data };
     d[ubahTarget].uang_awal = n;
     setData({ ...d });
-    await saveHarian(ubahTarget, n);
+
+    if (isOnline) {
+      await saveHarian(ubahTarget, n);
+    } else {
+      await saveUangAwalLocal(ubahTarget, n);
+      await addToSyncQueue('uang_awal', { tanggal: ubahTarget, uang_awal: n });
+      showToast("Tersimpan offline — akan sync saat online", "info");
+    }
+    
     closeModal();
     showToast("Uang awal diperbarui!");
+  } catch {
+    showToast("Gagal mengubah uang awal, coba lagi!", "error");
+  } finally {
     setIsSubmitting(false);
-  };
+  }
+};
 
   const doEdit = async () => {
   if (isSubmitting || editIdx === null) return;
@@ -283,7 +361,14 @@ const doReset = async () => {
       ...(t.type === "masuk" ? { metode: formEditMetode } : { kategori: formEditKategori || "Lainnya", catatan: formEditCatatan || "-" }),
     };
     setData({ ...d });
-    await saveTransaksi(today, d[today].transaksi);
+
+    if (isOnline) {
+      await saveTransaksi(today, d[today].transaksi);
+    } else {
+      await saveTransaksiLocal(today, d[today].transaksi);
+      await addToSyncQueue('transaksi', { tanggal: today, transaksi: d[today].transaksi });
+      showToast("Tersimpan offline — akan sync saat online", "info");
+    }
     closeModal();
     showToast("Transaksi diperbarui!");
   } catch {
