@@ -2,7 +2,7 @@ import { useState } from "react";
 import Card from "../components/Card";
 import TransaksiRow from "../components/TransaksiRow";
 
-export default function TransaksiScreen({ data, today, setModal, setHapusIdx }) {
+export default function TransaksiScreen({ data, today, setModal, setHapusIdx, setEditIdx, }) {
   const [filter, setFilter] = useState("semua");
 
   const semua = data[today]?.transaksi ?? [];
@@ -34,17 +34,10 @@ export default function TransaksiScreen({ data, today, setModal, setHapusIdx }) 
         </div>
       </div>
 
-      {/* Tab Filter */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
         {tabs.map(t => (
           <button key={t.key} onClick={() => setFilter(t.key)}
-            style={{
-              padding: "10px", borderRadius: 12, border: `1.5px solid ${filter === t.key ? "#6366F1" : "rgba(255,255,255,0.1)"}`,
-              background: filter === t.key ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.04)",
-              color: filter === t.key ? "#6366F1" : "#aaa",
-              fontWeight: 700, fontSize: 13, cursor: "pointer",
-              fontFamily: "'Sora',sans-serif",
-            }}>
+            style={{ padding: "10px", borderRadius: 12, border: `1.5px solid ${filter === t.key ? "#6366F1" : "rgba(255,255,255,0.1)"}`, background: filter === t.key ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.04)", color: filter === t.key ? "#6366F1" : "#aaa", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Sora',sans-serif" }}>
             {t.label}
           </button>
         ))}
@@ -52,9 +45,7 @@ export default function TransaksiScreen({ data, today, setModal, setHapusIdx }) 
 
       {filtered.length === 0 ? (
         <Card>
-          <p style={{ color: "#555577", textAlign: "center", margin: "24px 0", fontSize: 14 }}>
-            Belum ada transaksi
-          </p>
+          <p style={{ color: "#555577", textAlign: "center", margin: "24px 0", fontSize: 14 }}>Belum ada transaksi</p>
         </Card>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -63,6 +54,10 @@ export default function TransaksiScreen({ data, today, setModal, setHapusIdx }) 
               key={i}
               t={t}
               idx={semua.indexOf(t)}
+              onEdit={(idx) => {
+                setEditIdx(idx);
+                setModal("editTransaksi");
+              }}
               onDelete={(idx) => {
                 setHapusIdx(idx);
                 setModal("konfirmHapus");

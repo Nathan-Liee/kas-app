@@ -50,12 +50,19 @@ export default function App() {
   const [isSubmitting,    setIsSubmitting]    = useState(false);
   const { data: realtimeTransaksi } = useRealtime('transaksi');
 
+  const [resetFilter, setResetFilter] = useState(0);
+  const [editIdx,        setEditIdx]        = useState(null);
+  const [formEditJumlah, setFormEditJumlah] = useState("");
+  const [formEditMetode, setFormEditMetode] = useState("cash");
+  const [formEditKategori, setFormEditKategori] = useState("");
+  const [formEditCatatan,  setFormEditCatatan]  = useState("");
+  const handleFormEditJumlahChange = (val) => setFormEditJumlah(formatAngka(val));
+
   useEffect(() => {
   if (!user || realtimeTransaksi.length === 0) return;
 
   setData(prev => {
     const updated = { ...prev };
-    // Kelompokkan transaksi realtime per tanggal
     const perTanggal = {};
     realtimeTransaksi.forEach(t => {
       if (!perTanggal[t.tanggal]) perTanggal[t.tanggal] = [];
@@ -68,9 +75,9 @@ export default function App() {
       });
     });
 
-    // Update tiap tanggal yang ada di realtime
     Object.keys(perTanggal).forEach(tanggal => {
-      if (updated[tanggal]) {
+      // ← hanya update kalau local state BUKAN hasil reset manual
+      if (updated[tanggal] && updated[tanggal].transaksi.length > 0) {
         updated[tanggal] = {
           ...updated[tanggal],
           transaksi: perTanggal[tanggal],
@@ -94,7 +101,7 @@ export default function App() {
             .from('profiles')
             .select('*')
             .eq('id', user.id)
-            .single();
+            .single();useEffe
 
           if (!existingProfile) {
             await supabase.from('profiles').insert({
@@ -145,10 +152,12 @@ export default function App() {
   };
 
   const closeModal = () => {
-    setModal(null);
-    setFormJumlah(""); setFormKategori(""); setFormCatatan(""); setFormMetode("cash");
-    setFormUangAwal(""); setHapusIdx(null); setKonfirmasiReset("");
-  };
+  setModal(null);
+  setFormJumlah(""); setFormKategori(""); setFormCatatan(""); setFormMetode("cash");
+  setFormUangAwal(""); setHapusIdx(null); setKonfirmasiReset("");
+  setEditIdx(null); setFormEditJumlah(""); setFormEditMetode("cash");
+  setFormEditKategori(""); setFormEditCatatan("");
+};
 
   const cleanNumber = (str) => String(str).replace(/\./g, "");
   const handleFormJumlahChange    = (val) => setFormJumlah(formatAngka(val));
@@ -227,10 +236,14 @@ const doReset = async () => {
   if (konfirmasiReset.toLowerCase() !== "ya") return showToast("Ketik 'ya' untuk konfirmasi!", "error");
   setIsSubmitting(true);
   try {
-    const d = { ...data };
-    d[today].transaksi = [];
-    setData({ ...d });
     await saveTransaksi(today, []);
+    setData(prev => ({
+      ...prev,
+      [today]: {
+        ...prev[today],
+        transaksi: [],
+      }
+    }));
     closeModal();
     showToast("Semua transaksi direset!", "info");
   } catch {
@@ -253,6 +266,30 @@ const doReset = async () => {
     showToast("Uang awal diperbarui!");
     setIsSubmitting(false);
   };
+
+  const doEdit = async () => {
+  if (isSubmitting || editIdx === null) return;
+  const n = parseInt(cleanNumber(formEditJumlah));
+  if (isNaN(n) || n <= 0) return showToast("Jumlah harus lebih dari 0!", "error");
+  setIsSubmitting(true);
+  try {
+    const d = { ...data };
+    const t = d[today].transaksi[editIdx];
+    d[today].transaksi[editIdx] = {
+      ...t,
+      jumlah: n,
+      ...(t.type === "masuk" ? { metode: formEditMetode } : { kategori: formEditKategori || "Lainnya", catatan: formEditCatatan || "-" }),
+    };
+    setData({ ...d });
+    await saveTransaksi(today, d[today].transaksi);
+    closeModal();
+    showToast("Transaksi diperbarui!");
+  } catch {
+    showToast("Gagal memperbarui, coba lagi!", "error");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const calc = useCallback((tanggal) => calcHarian(data[tanggal]), [data]);
   const todayCalc = data[today] ? calc(today) : {};
@@ -321,8 +358,24 @@ const doReset = async () => {
           <HomeScreen data={data} today={today} todayCalc={todayCalc} setModal={setModal} setTab={setTab} profile={profile} />
         )}
         {tab === "riwayat" && (
-          <TransaksiScreen data={data} today={today} setModal={setModal} setHapusIdx={setHapusIdx} />
-        )}
+  <TransaksiScreen
+    data={data}
+    today={today}
+    resetFilter={resetFilter}
+    setModal={setModal}
+    setHapusIdx={setHapusIdx}
+    setEditIdx={(idx) => {
+      setEditIdx(idx);
+      const t = data[today]?.transaksi?.[idx];
+      if (t) {
+        setFormEditJumlah(formatAngka(String(t.jumlah)));
+        setFormEditMetode(t.metode || "cash");
+        setFormEditKategori(t.kategori || "");
+        setFormEditCatatan(t.catatan || "");
+      }
+    }}
+  />
+)}
         {tab === "laporan" && (
           <LaporanScreen
             data={data} today={today} dates={dates} calc={calc}
@@ -420,6 +473,44 @@ const doReset = async () => {
             </div>
           )}
         </Modal>
+
+        <Modal show={modal === "editTransaksi"} onClose={closeModal} title="Edit Transaksi">
+  {editIdx !== null && data[today]?.transaksi?.[editIdx] && (() => {
+    const t = data[today].transaksi[editIdx];
+    return (
+      <div>
+        <Field label="Jumlah" value={formEditJumlah} onChange={handleFormEditJumlahChange} type="number" placeholder="0" prefix="Rp"
+          onKeyDown={(e) => { if (e.key === "Enter" && !isSubmitting) doEdit(); }} />
+
+        {t.type === "masuk" ? (
+          <>
+            <label style={{ color: "#8888aa", fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 8 }}>Metode</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+              {["cash", "qris"].map((m) => (
+                <button key={m} onClick={() => setFormEditMetode(m)}
+                  style={{ padding: "12px", borderRadius: 12, border: `2px solid ${formEditMetode === m ? "#6366F1" : "rgba(255,255,255,0.1)"}`, background: formEditMetode === m ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.04)", color: formEditMetode === m ? "#6366F1" : "#aaa", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Sora',sans-serif" }}>
+                  {m.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <Field label="Kategori" value={formEditKategori} onChange={setFormEditKategori} placeholder="Belanja, Gaji, dll."
+              onKeyDown={(e) => { if (e.key === "Enter" && !isSubmitting) doEdit(); }} />
+            <Field label="Catatan" value={formEditCatatan} onChange={setFormEditCatatan} placeholder="Opsional"
+              onKeyDown={(e) => { if (e.key === "Enter" && !isSubmitting) doEdit(); }} />
+          </>
+        )}
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <Btn onClick={closeModal} variant="ghost">Batal</Btn>
+          <Btn onClick={doEdit} icon="check" disabled={isSubmitting}>Simpan</Btn>
+        </div>
+      </div>
+    );
+  })()}
+</Modal>
 
         <Modal show={modal === "reset"} onClose={closeModal} title="Reset Transaksi">
           <div style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 12, padding: 12, marginBottom: 16 }}>
