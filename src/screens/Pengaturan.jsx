@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { version } from '../../package.json';
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Icon from "../components/Icon";
@@ -6,6 +7,37 @@ import Btn from "../components/Button";
 import Field from "../components/Field";
 import { formatUang } from "../utils/format";
 import { updateProfile, updatePassword } from "../utils/storage";
+import { supabase } from "../utils/supabase";
+
+// ← Dipindah ke luar komponen
+function RiwayatUangAwal({ dates, data, setUbahTarget, setFormUangAwal, setModal }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div>
+      <button onClick={() => setShow(!show)}
+        style={{ width: "100%", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "10px 14px", cursor: "pointer", color: "#6b6b88", fontFamily: "'Sora',sans-serif", fontWeight: 600, fontSize: 12, textAlign: "left", display: "flex", justifyContent: "space-between" }}>
+        <span>Riwayat uang awal ({dates.length} hari)</span>
+        <span>{show ? "▲" : "▼"}</span>
+      </button>
+      {show && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+          {dates.map(tgl => (
+            <div key={tgl} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <p style={{ margin: "0 0 2px", color: "#ddd", fontWeight: 600, fontSize: 14 }}>{tgl}</p>
+                <p style={{ margin: 0, color: "#10B981", fontSize: 13, fontWeight: 700 }}>{formatUang(data[tgl]?.uang_awal ?? 0)}</p>
+              </div>
+              <button onClick={() => { setUbahTarget(tgl); setFormUangAwal(String(data[tgl]?.uang_awal ?? "")); setModal("ubahAwal"); }}
+                style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 10, padding: "8px 12px", cursor: "pointer", color: "#6366F1" }}>
+                <Icon name="edit" size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function PengaturanScreen({
   data, today, dates,
@@ -20,6 +52,12 @@ export default function PengaturanScreen({
   const [loading, setLoading] = useState(false);
   const [konfirmLogout, setKonfirmLogout] = useState(false);
   const [msg, setMsg] = useState("");
+
+  // State untuk reset akun
+  const [showResetAkun, setShowResetAkun] = useState(false);
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMsg, setResetMsg] = useState("");
 
   const doUpdateUsername = async () => {
     if (!newUsername) return setMsg("Username tidak boleh kosong!");
@@ -57,36 +95,36 @@ export default function PengaturanScreen({
     }
   };
 
-  function RiwayatUangAwal({ dates, data, setUbahTarget, setFormUangAwal, setModal }) {
-  const [show, setShow] = useState(false);
+  const doResetAkun = async () => {
+    if (!resetPassword) return setResetMsg("Masukkan password dulu!");
+    setResetLoading(true);
+    setResetMsg("");
+    try {
+      // Verifikasi password dengan login ulang
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: profile.email,
+        password: resetPassword,
+      });
+      if (authError) throw new Error("Password salah!");
 
-  return (
-    <div>
-      <button onClick={() => setShow(!show)}
-        style={{ width: "100%", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "10px 14px", cursor: "pointer", color: "#6b6b88", fontFamily: "'Sora',sans-serif", fontWeight: 600, fontSize: 12, textAlign: "left", display: "flex", justifyContent: "space-between" }}>
-        <span>Riwayat uang awal ({dates.length} hari)</span>
-        <span>{show ? "▲" : "▼"}</span>
-      </button>
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User tidak ditemukan!");
 
-      {show && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-          {dates.map(tgl => (
-            <div key={tgl} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <p style={{ margin: "0 0 2px", color: "#ddd", fontWeight: 600, fontSize: 14 }}>{tgl}</p>
-                <p style={{ margin: 0, color: "#10B981", fontSize: 13, fontWeight: 700 }}>{formatUang(data[tgl]?.uang_awal ?? 0)}</p>
-              </div>
-              <button onClick={() => { setUbahTarget(tgl); setFormUangAwal(String(data[tgl]?.uang_awal ?? "")); setModal("ubahAwal"); }}
-                style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 10, padding: "8px 12px", cursor: "pointer", color: "#6366F1" }}>
-                <Icon name="edit" size={16} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+      await supabase.from('transaksi').delete().eq('user_id', user.id);
+      await supabase.from('uang_awal').delete().eq('user_id', user.id);
+
+      setResetPassword("");
+      setShowResetAkun(false);
+      setResetMsg("");
+      setModal("setup");
+      // Reload data di parent via onLogout tidak diperlukan, cukup trigger App reload data
+      window.location.reload();
+    } catch (err) {
+      setResetMsg(err.message);
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   return (
     <div style={{ padding: "0 16px 100px" }}>
@@ -115,11 +153,8 @@ export default function PengaturanScreen({
           </div>
         </div>
 
-        {msg && (
-          <p style={{ color: "#10B981", fontSize: 13, margin: "0 0 12px", textAlign: "center", fontWeight: 600 }}>{msg}</p>
-        )}
+        {msg && <p style={{ color: "#10B981", fontSize: 13, margin: "0 0 12px", textAlign: "center", fontWeight: 600 }}>{msg}</p>}
 
-        {/* Edit Username */}
         {!editUsername ? (
           <button onClick={() => { setEditUsername(true); setNewUsername(profile?.username || ""); setEditPassword(false); }}
             style={{ width: "100%", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 12, padding: "12px", cursor: "pointer", color: "#6366F1", fontFamily: "'Sora',sans-serif", fontWeight: 600, fontSize: 13, marginBottom: 8 }}>
@@ -135,7 +170,6 @@ export default function PengaturanScreen({
           </div>
         )}
 
-        {/* Edit Password */}
         {!editPassword ? (
           <button onClick={() => { setEditPassword(true); setEditUsername(false); }}
             style={{ width: "100%", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 12, padding: "12px", cursor: "pointer", color: "#6366F1", fontFamily: "'Sora',sans-serif", fontWeight: 600, fontSize: 13 }}>
@@ -153,63 +187,77 @@ export default function PengaturanScreen({
         )}
       </Card>
 
-     {/* Uang Awal */}
-<p style={{ color: "#6366F1", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>
-  Uang Awal
-</p>
-{!data[today] && (
-  <button onClick={() => setModal("setup")}
-    style={{ width: "100%", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 14, padding: "14px", cursor: "pointer", color: "#6366F1", fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 14, marginBottom: 16 }}>
-    Setup Uang Awal Hari Ini
-  </button>
-)}
-<div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
-  {/* Hanya tampil hari ini */}
-  {data[today] && (
-    <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <div>
-        <p style={{ margin: "0 0 2px", color: "#ddd", fontWeight: 600, fontSize: 14 }}>
-          {today} <Badge color="#6366F1">Hari Ini</Badge>
-        </p>
-        <p style={{ margin: 0, color: "#10B981", fontSize: 13, fontWeight: 700 }}>
-          {formatUang(data[today]?.uang_awal ?? 0)}
-        </p>
+      {/* Uang Awal */}
+      <p style={{ color: "#6366F1", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>
+        Uang Awal
+      </p>
+      {!data[today] && (
+        <button onClick={() => setModal("setup")}
+          style={{ width: "100%", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 14, padding: "14px", cursor: "pointer", color: "#6366F1", fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 14, marginBottom: 16 }}>
+          Setup Uang Awal Hari Ini
+        </button>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
+        {data[today] && (
+          <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <p style={{ margin: "0 0 2px", color: "#ddd", fontWeight: 600, fontSize: 14 }}>
+                {today} <Badge color="#6366F1">Hari Ini</Badge>
+              </p>
+              <p style={{ margin: 0, color: "#10B981", fontSize: 13, fontWeight: 700 }}>
+                {formatUang(data[today]?.uang_awal ?? 0)}
+              </p>
+            </div>
+            <button onClick={() => { setUbahTarget(today); setFormUangAwal(String(data[today]?.uang_awal ?? "")); setModal("ubahAwal"); }}
+              style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 10, padding: "8px 12px", cursor: "pointer", color: "#6366F1" }}>
+              <Icon name="edit" size={16} />
+            </button>
+          </div>
+        )}
+        {dates.filter(tgl => tgl !== today).length > 0 && (
+          <RiwayatUangAwal
+            dates={dates.filter(tgl => tgl !== today)}
+            data={data}
+            setUbahTarget={setUbahTarget}
+            setFormUangAwal={setFormUangAwal}
+            setModal={setModal}
+          />
+        )}
       </div>
-      <button onClick={() => { setUbahTarget(today); setFormUangAwal(String(data[today]?.uang_awal ?? "")); setModal("ubahAwal"); }}
-        style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 10, padding: "8px 12px", cursor: "pointer", color: "#6366F1" }}>
-        <Icon name="edit" size={16} />
-      </button>
-    </div>
-  )}
-
-  {/* Riwayat hari sebelumnya - collapsible */}
-  {dates.filter(tgl => tgl !== today).length > 0 && (
-    <RiwayatUangAwal
-      dates={dates.filter(tgl => tgl !== today)}
-      data={data}
-      setUbahTarget={setUbahTarget}
-      setFormUangAwal={setFormUangAwal}
-      setModal={setModal}
-    />
-  )}
-</div>
 
       {/* Info App */}
       <p style={{ color: "#6366F1", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>
         Info Aplikasi
       </p>
       <Card style={{ marginBottom: 16 }}>
-        <p style={{ margin: "0 0 8px", color: "#ddd", fontWeight: 700, fontSize: 15, fontFamily: "'Sora',sans-serif" }}>
-          Kas App
-        </p>
-        <p style={{ margin: 0, color: "#6b6b88", fontSize: 13 }}>
-          Manajemen kas harian dengan laporan cash, QRIS, dan pengeluaran per kategori.
-        </p>
+        <p style={{ margin: "0 0 8px", color: "#ddd", fontWeight: 700, fontSize: 15, fontFamily: "'Sora',sans-serif" }}>Kas App</p>
+        <p style={{ margin: 0, color: "#6b6b88", fontSize: 13 }}>Manajemen kas harian dengan laporan cash, QRIS, dan pengeluaran per kategori.</p>
         <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Badge color="#6366F1">v1.0</Badge>
+          <Badge color="#6366F1">v{version}</Badge>
           <Badge color="#10B981">{dates.length} Hari Tersimpan</Badge>
         </div>
       </Card>
+
+      {/* Reset Akun */}
+      {!showResetAkun ? (
+        <button onClick={() => setShowResetAkun(true)}
+          style={{ width: "100%", background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 14, padding: "14px", cursor: "pointer", color: "#EF4444", fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 14, marginBottom: 10 }}>
+          Reset Akun
+        </button>
+      ) : (
+        <div style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 14, padding: 16, marginBottom: 10 }}>
+          <p style={{ color: "#EF4444", fontSize: 13, fontWeight: 700, margin: "0 0 4px" }}>⚠️ Reset Akun</p>
+          <p style={{ color: "#aaa", fontSize: 12, margin: "0 0 12px" }}>
+            Semua riwayat transaksi dan uang awal akan dihapus permanen. Masukkan password untuk konfirmasi.
+          </p>
+          <Field label="Password" value={resetPassword} onChange={setResetPassword} type="password" placeholder="Masukkan password kamu" onKeyDown={(e) => e.key === 'Enter' && doResetAkun()} />
+          {resetMsg && <p style={{ color: "#EF4444", fontSize: 12, margin: "-8px 0 8px" }}>{resetMsg}</p>}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <Btn onClick={() => { setShowResetAkun(false); setResetPassword(""); setResetMsg(""); }} variant="ghost">Batal</Btn>
+            <Btn onClick={doResetAkun} variant="danger" disabled={resetLoading}>{resetLoading ? "Mereset..." : "Reset"}</Btn>
+          </div>
+        </div>
+      )}
 
       {/* Logout */}
       {!konfirmLogout ? (
@@ -219,9 +267,7 @@ export default function PengaturanScreen({
         </button>
       ) : (
         <div>
-          <p style={{ color: "#aaa", fontSize: 13, textAlign: "center", marginBottom: 12 }}>
-            Yakin ingin keluar?
-          </p>
+          <p style={{ color: "#aaa", fontSize: 13, textAlign: "center", marginBottom: 12 }}>Yakin ingin keluar?</p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <Btn onClick={() => setKonfirmLogout(false)} variant="ghost">Batal</Btn>
             <Btn onClick={onLogout} variant="danger">Keluar</Btn>

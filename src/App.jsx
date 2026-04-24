@@ -291,6 +291,29 @@ const doReset = async () => {
   }
 };
 
+const doResetAkun = async () => {
+  if (isSubmitting) return;
+  setIsSubmitting(true);
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Hapus semua transaksi
+    await supabase.from('transaksi').delete().eq('user_id', user.id);
+    // Hapus semua uang awal
+    await supabase.from('uang_awal').delete().eq('user_id', user.id);
+
+    setData({});
+    closeModal();
+    showToast("Akun berhasil direset!", "info");
+    setModal("setup");
+  } catch {
+    showToast("Gagal mereset akun, coba lagi!", "error");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
   const calc = useCallback((tanggal) => calcHarian(data[tanggal]), [data]);
   const todayCalc = data[today] ? calc(today) : {};
   const dates = Object.keys(data).sort((a, b) => b.localeCompare(a));
@@ -535,6 +558,21 @@ const doReset = async () => {
               </p>
             </div>
           )}
+
+          <Modal show={modal === "resetAkun"} onClose={closeModal} title="Reset Akun">
+  <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 12, padding: 12, marginBottom: 16 }}>
+    <p style={{ color: "#EF4444", margin: 0, fontSize: 13, display: "flex", gap: 6 }}>
+      <Icon name="warning" size={16} color="#EF4444" />
+      Semua riwayat transaksi dan uang awal akan dihapus permanen!
+    </p>
+  </div>
+  <Field label="Ketik 'reset' untuk konfirmasi" value={konfirmasiReset} onChange={setKonfirmasiReset} placeholder="reset" onKeyDown={(e) => e.key === 'Enter' && konfirmasiReset === 'reset' && doResetAkun()} />
+  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+    <Btn onClick={closeModal} variant="ghost">Batal</Btn>
+    <Btn onClick={() => { if (konfirmasiReset !== 'reset') return showToast("Ketik 'reset' untuk konfirmasi!", "error"); doResetAkun(); }} variant="danger" disabled={isSubmitting}>Reset Akun</Btn>
+  </div>
+</Modal>
+
           <p style={{ color: "#aaa", fontSize: 13, margin: "0 0 12px" }}>
             Saat ini: <strong style={{ color: "#fff" }}>{`Rp ${Number(data[ubahTarget]?.uang_awal ?? 0).toLocaleString("id-ID")}`}</strong>
           </p>
