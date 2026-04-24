@@ -69,7 +69,6 @@ function LaporanHarianContent({ data, selectedDate, calc }) {
 
 function LaporanMingguan({ data, calc }) {
   const dates = Object.keys(data).sort((a, b) => b.localeCompare(a));
-  
   const weeks = {};
   dates.forEach(tgl => {
     const date = new Date(tgl + 'T00:00:00');
@@ -80,7 +79,6 @@ function LaporanMingguan({ data, calc }) {
     if (!weeks[weekKey]) weeks[weekKey] = [];
     weeks[weekKey].push(tgl);
   });
-
   const weekKeys = Object.keys(weeks).sort((a, b) => b.localeCompare(a));
 
   if (weekKeys.length === 0) return (
@@ -95,7 +93,6 @@ function LaporanMingguan({ data, calc }) {
         const totalKeluar = weekDates.reduce((s, tgl) => s + (calc(tgl).totalKeluar ?? 0), 0);
         const endDate = new Date(weekKey + 'T00:00:00');
         endDate.setDate(endDate.getDate() + 6);
-
         return (
           <div key={weekKey} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "14px 16px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
@@ -133,14 +130,12 @@ function LaporanMingguan({ data, calc }) {
 
 function LaporanBulanan({ data, calc }) {
   const dates = Object.keys(data).sort((a, b) => b.localeCompare(a));
-
   const months = {};
   dates.forEach(tgl => {
     const monthKey = tgl.substring(0, 7);
     if (!months[monthKey]) months[monthKey] = [];
     months[monthKey].push(tgl);
   });
-
   const monthKeys = Object.keys(months).sort((a, b) => b.localeCompare(a));
 
   if (monthKeys.length === 0) return (
@@ -156,7 +151,6 @@ function LaporanBulanan({ data, calc }) {
         const saldo = totalMasuk - totalKeluar;
         const [year, month] = monthKey.split('-');
         const monthName = new Date(year, month - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-
         return (
           <div key={monthKey} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: "14px 16px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
@@ -207,32 +201,52 @@ export default function LaporanScreen({
     { key: "bulanan",  label: "Bulanan" },
   ];
 
+  const exportCSV = () => {
+    const rows = [["Tanggal", "Tipe", "Metode", "Kategori", "Catatan", "Jumlah"]];
+    dates.forEach(tgl => {
+      const c = calc(tgl);
+      c.transaksi?.forEach(t => {
+        rows.push([
+          tgl,
+          t.type === "masuk" ? "Pemasukan" : "Pengeluaran",
+          t.metode?.toUpperCase() || "-",
+          t.kategori || "-",
+          t.catatan || "-",
+          t.jumlah,
+        ]);
+      });
+    });
+    const csv = rows.map(r => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `kas-toko-${today}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div style={{ padding: "0 16px 100px" }}>
-      <div style={{ paddingTop: 60, paddingBottom: 16 }}>
+      <div style={{ paddingTop: 60, paddingBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <h2 style={{ color: "#fff", fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 22, margin: 0 }}>
           Laporan
         </h2>
+        <button onClick={exportCSV}
+          style={{ background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", borderRadius: 10, padding: "8px 12px", cursor: "pointer", color: "#10B981", fontSize: 12, fontWeight: 600, fontFamily: "'Sora',sans-serif" }}>
+          Export CSV
+        </button>
       </div>
 
-      {/* Tab */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
         {tabs.map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key)}
-            style={{
-              padding: "10px", borderRadius: 12,
-              border: `1.5px solid ${activeTab === t.key ? "#6366F1" : "rgba(255,255,255,0.1)"}`,
-              background: activeTab === t.key ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.04)",
-              color: activeTab === t.key ? "#6366F1" : "#aaa",
-              fontWeight: 700, fontSize: 13, cursor: "pointer",
-              fontFamily: "'Sora',sans-serif",
-            }}>
+            style={{ padding: "10px", borderRadius: 12, border: `1.5px solid ${activeTab === t.key ? "#6366F1" : "rgba(255,255,255,0.1)"}`, background: activeTab === t.key ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.04)", color: activeTab === t.key ? "#6366F1" : "#aaa", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Sora',sans-serif" }}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* Content */}
       {activeTab === "harian" && (
         dates.length === 0 ? (
           <Card><p style={{ color: "#555577", textAlign: "center", margin: "24px 0", fontSize: 14 }}>Belum ada data</p></Card>

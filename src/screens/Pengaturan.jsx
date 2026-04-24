@@ -57,6 +57,37 @@ export default function PengaturanScreen({
     }
   };
 
+  function RiwayatUangAwal({ dates, data, setUbahTarget, setFormUangAwal, setModal }) {
+  const [show, setShow] = useState(false);
+
+  return (
+    <div>
+      <button onClick={() => setShow(!show)}
+        style={{ width: "100%", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "10px 14px", cursor: "pointer", color: "#6b6b88", fontFamily: "'Sora',sans-serif", fontWeight: 600, fontSize: 12, textAlign: "left", display: "flex", justifyContent: "space-between" }}>
+        <span>Riwayat uang awal ({dates.length} hari)</span>
+        <span>{show ? "▲" : "▼"}</span>
+      </button>
+
+      {show && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+          {dates.map(tgl => (
+            <div key={tgl} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <p style={{ margin: "0 0 2px", color: "#ddd", fontWeight: 600, fontSize: 14 }}>{tgl}</p>
+                <p style={{ margin: 0, color: "#10B981", fontSize: 13, fontWeight: 700 }}>{formatUang(data[tgl]?.uang_awal ?? 0)}</p>
+              </div>
+              <button onClick={() => { setUbahTarget(tgl); setFormUangAwal(String(data[tgl]?.uang_awal ?? "")); setModal("ubahAwal"); }}
+                style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 10, padding: "8px 12px", cursor: "pointer", color: "#6366F1" }}>
+                <Icon name="edit" size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
   return (
     <div style={{ padding: "0 16px 100px" }}>
       <div style={{ paddingTop: 60, paddingBottom: 16 }}>
@@ -122,34 +153,46 @@ export default function PengaturanScreen({
         )}
       </Card>
 
-      {/* Uang Awal */}
-      <p style={{ color: "#6366F1", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>
-        Uang Awal
-      </p>
-      {!data[today] && (
+     {/* Uang Awal */}
+<p style={{ color: "#6366F1", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>
+  Uang Awal
+</p>
+{!data[today] && (
   <button onClick={() => setModal("setup")}
     style={{ width: "100%", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 14, padding: "14px", cursor: "pointer", color: "#6366F1", fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 14, marginBottom: 16 }}>
     Setup Uang Awal Hari Ini
   </button>
 )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
-        {dates.map((tgl) => (
-          <div key={tgl} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <p style={{ margin: "0 0 2px", color: "#ddd", fontWeight: 600, fontSize: 14 }}>
-                {tgl}{" "}{tgl === today && <Badge color="#6366F1">Hari Ini</Badge>}
-              </p>
-              <p style={{ margin: 0, color: "#10B981", fontSize: 13, fontWeight: 700 }}>
-                {formatUang(data[tgl]?.uang_awal ?? 0)}
-              </p>
-            </div>
-            <button onClick={() => { setUbahTarget(tgl); setFormUangAwal(String(data[tgl]?.uang_awal ?? "")); setModal("ubahAwal"); }}
-              style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 10, padding: "8px 12px", cursor: "pointer", color: "#6366F1" }}>
-              <Icon name="edit" size={16} />
-            </button>
-          </div>
-        ))}
+<div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
+  {/* Hanya tampil hari ini */}
+  {data[today] && (
+    <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div>
+        <p style={{ margin: "0 0 2px", color: "#ddd", fontWeight: 600, fontSize: 14 }}>
+          {today} <Badge color="#6366F1">Hari Ini</Badge>
+        </p>
+        <p style={{ margin: 0, color: "#10B981", fontSize: 13, fontWeight: 700 }}>
+          {formatUang(data[today]?.uang_awal ?? 0)}
+        </p>
       </div>
+      <button onClick={() => { setUbahTarget(today); setFormUangAwal(String(data[today]?.uang_awal ?? "")); setModal("ubahAwal"); }}
+        style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 10, padding: "8px 12px", cursor: "pointer", color: "#6366F1" }}>
+        <Icon name="edit" size={16} />
+      </button>
+    </div>
+  )}
+
+  {/* Riwayat hari sebelumnya - collapsible */}
+  {dates.filter(tgl => tgl !== today).length > 0 && (
+    <RiwayatUangAwal
+      dates={dates.filter(tgl => tgl !== today)}
+      data={data}
+      setUbahTarget={setUbahTarget}
+      setFormUangAwal={setFormUangAwal}
+      setModal={setModal}
+    />
+  )}
+</div>
 
       {/* Info App */}
       <p style={{ color: "#6366F1", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>
