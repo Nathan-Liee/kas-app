@@ -13,6 +13,7 @@ import TransaksiRow from "./components/TransaksiRow";
 import HomeScreen       from "./screens/Home";
 import TransaksiScreen  from "./screens/Transaksi";
 import LaporanScreen    from "./screens/Laporan";
+import GrafikScreen from "./screens/Grafik";
 import PengaturanScreen from "./screens/Pengaturan";
 
 import { loadData, saveHarian, saveTransaksi, getCurrentDate, loadProfile } from "./utils/storage";
@@ -22,7 +23,8 @@ import { formatAngka } from "./utils/format";
 const TABS = [
   { key: "home",       icon: "home",  label: "Beranda"    },
   { key: "riwayat",    icon: "list",  label: "Transaksi"  },
-  { key: "laporan",    icon: "chart", label: "Laporan"    },
+  { key: "laporan",    icon: "wallet",label: "Laporan"    },
+  { key: "grafik",     icon: "chart", label: "grafik"     },
   { key: "pengaturan", icon: "edit",  label: "Pengaturan" },
 ];
 
@@ -406,6 +408,9 @@ const doResetAkun = async () => {
             modalOpen={modal} setModal={setModal} closeModal={closeModal}
           />
         )}
+        {tab === "grafik" && (
+  <GrafikScreen data={data} today={today} />
+)}
         {tab === "pengaturan" && (
           <PengaturanScreen
             data={data} today={today} dates={dates}
